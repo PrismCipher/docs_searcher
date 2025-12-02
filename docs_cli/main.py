@@ -1,8 +1,9 @@
 import typer
 from rich.console import Console
 from rich.panel import Panel
+from rich.markdown import Markdown
+from docs_cli.scraper import get_python_builtin
 
-# App initialization
 app = typer.Typer()
 console = Console()
 
@@ -10,15 +11,36 @@ console = Console()
 def search(query: str, language: str = typer.Option("python", "--lang", "-l", help="Language doc to search")):
     """
     Search documentation for a specific query.
+    Usage Example: docs search print
     """
-    # DEVELOPMENT: This is a placeholder for future documentation search logic.
-    console.print(Panel.fit(f"[bold green]Searching docs for:[/bold green] [cyan]{query}[/cyan]", title="Docs Searcher"))
+    # Begin response
+    console.print(f"[bold grey50]Searching for '{query}' in {language} docs...[/bold grey50]")
 
     if language.lower() == "python":
-        console.print(f"🕵️  Looking into [bold blue]Python[/bold blue] documentation...")  # noqa: F541
-        # DEVELOPMENT: Parsing logic will be added here later
+        url, result = get_python_builtin(query) # Function from scraper.py
+
+        if url:
+            # Found
+            console.print(Panel.fit(
+                f"[bold green]Found![/bold green]\n\n[link={url}]{url}[/link]",
+                title=f"Python: {query}",
+                border_style="green"
+            ))
+            # Markdown allows the text to look better
+            
+            console.print(Markdown(result))
+            
+            console.print("[grey50]" + "-"*50 + "[/grey50]")
+        else:
+            # Not found
+            console.print(Panel(
+                f"[red]Could not find '{query}' in Python built-in functions.[/red]\nDetails: {result}",
+                title="Error",
+                border_style="red"
+            ))
+
     else:
-        console.print(f"🕵️  Looking into [bold orange1]{language}[/bold orange1] documentation...")
+        console.print(f"[yellow]Sorry, support for {language} is coming soon![/yellow]")
 
 @app.command()
 def info():
