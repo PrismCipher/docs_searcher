@@ -33,11 +33,25 @@ def search(query: str, language: str = typer.Option("python", "--lang", "-l", he
             console.print("[grey50]" + "-"*50 + "[/grey50]")
         else:
             # Not found
-            console.print(Panel(
-                f"[red]Could not find '{query}' in Python built-in functions.[/red]\nDetails: {result}",
-                title="Error",
-                border_style="red"
-            ))
+
+            # Check for suggestions
+            if isinstance(result, dict) and result.get("type") == "did_you_mean":
+                suggestions = result["matches"]
+                suggestion_text = "\n".join([f"* [bold cyan]{match}[/bold cyan]" for match in suggestions])
+                
+                console.print(Panel(
+                    f"[yellow]Could not find '{query}'. Did you mean?[/yellow]\n\n{suggestion_text}",
+                    title="Suggestions",
+                    border_style="yellow"
+                ))
+
+            # No suggestions
+            else:
+                console.print(Panel(
+                    f"[red]Could not find '{query}' in docs.[/red]\nDetails: {result}",
+                    title="Error",
+                    border_style="red"
+                ))
 
     else:
         console.print(f"[yellow]Sorry, support for {language} is coming soon![/yellow]")
