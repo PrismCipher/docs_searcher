@@ -1,8 +1,13 @@
 import requests
 import re
 import difflib
+import requests_cache
 from bs4 import BeautifulSoup
 from markdownify import markdownify as md
+from datetime import timedelta
+
+# Set up requests cache to cache responses for 24 hours
+requests_cache.install_cache('docs_cache', expire_after=timedelta(hours=24))
 
 def _parse_description(element, url, query):
     """

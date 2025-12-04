@@ -1,6 +1,7 @@
 typer
 rich
 requests
+requests-cache
 beautifulsoup4
 lxml
 markdownify
