@@ -8,7 +8,11 @@ app = typer.Typer()
 console = Console()
 
 @app.command()
-def search(query: str, language: str = typer.Option("python", "--lang", "-l", help="Language doc to search")):
+def search(
+    query: str, 
+    language: str = typer.Option("python", "--lang", "-l", help="Language doc to search"),
+    force: bool = typer.Option(False, "--force", "-f", help="Force refresh data (ignore cache)")
+):
     """
     Search documentation for a specific query.
     Usage Example: docs search print
@@ -17,19 +21,24 @@ def search(query: str, language: str = typer.Option("python", "--lang", "-l", he
     console.print(f"[bold grey50]Searching for '{query}' in {language} docs...[/bold grey50]")
 
     if language.lower() == "python":
-        url, result = get_python_builtin(query) # Function from scraper.py
+        url, result, is_cached = get_python_builtin(query, force_refresh=force) # Function from scraper.py
 
         if url:
             # Found
+            # Display with source badge
+            if is_cached is not None:
+                source_badge = "[bold yellow]⚡ CACHED[/bold yellow]" if is_cached else "[bold blue]🌐 ONLINE[/bold blue]"
+            else:
+                source_badge = "[bold grey50]UNKNOWN[/bold grey50]"
+
             console.print(Panel.fit(
                 f"[bold green]Found![/bold green]\n\n[link={url}]{url}[/link]",
-                title=f"Python: {query}",
+                title=f"Python: {query} ({source_badge})",
                 border_style="green"
             ))
+
             # Markdown allows the text to look better
-            
             console.print(Markdown(result))
-            
             console.print("[grey50]" + "-"*50 + "[/grey50]")
         else:
             # Not found
