@@ -36,9 +36,17 @@ class PythonProvider(BaseProvider):
             return url + f"#{query}", text.strip()
         return None
 
-    def search(self, query: str, force_refresh: bool = False):
+    def search(self, query: str, force_refresh: bool = False, force_anomaly: bool = False):
         """
         Parses Python's official documentation to search for built-in functions.
+
+        Returns:
+            tuple: (url, result, cache_status)
+            cache_status can be:
+                - True: served from cache (normal)
+                - False: fetched online (normal)
+                - "anomaly": all requests failed, but data somehow was acquired
+                - None: unknown state
         """
         # Target URL (the page where all built-in functions live)
         search_urls = [
@@ -50,6 +58,11 @@ class PythonProvider(BaseProvider):
         clean_query = query.strip("()").lower()
         all_seen_ids = [] # To collect all ids for suggestions
         is_from_cache = None  # Track cache status across all requests
+
+        # Track request
+        total_requests = 0
+        failed_requests = 0
+        cache_status_for_result = None
 
         # Get the current cache session
         session = requests_cache.get_cache()
@@ -63,12 +76,18 @@ class PythonProvider(BaseProvider):
 
                     # Make a request to the site
                     response = requests.get(url)
+                    total_requests += 1
 
                     # Determine if the response was served from cache
                     is_from_cache = getattr(response, 'from_cache', False)
 
                     if response.status_code != 200: # Status code 200 means "OK"
+                        failed_requests += 1
                         continue  # Skip this URL if we got a non-200 response
+
+                    # Determine cache status (only from successful responses)
+                    if cache_status_for_result is None:
+                        cache_status_for_result = is_from_cache
 
                     # Parse the HTML
                     soup = BeautifulSoup(response.text, 'lxml')
@@ -83,6 +102,8 @@ class PythonProvider(BaseProvider):
                         url_result, text_result = self._parse_description(element, url, clean_query) or (None, None)
 
                         if url_result:
+                            if force_anomaly:
+                                return url_result, text_result, "anomaly"
                             return url_result, text_result, is_from_cache
                         return None, "Function not found in built-ins.", None
                     
@@ -91,7 +112,16 @@ class PythonProvider(BaseProvider):
 
                 except requests.RequestException:
                     # If this specific URL fails, continue to the next one
+                    failed_requests += 1
                     continue
+            
+            if total_requests > 0 and failed_requests == total_requests and all_seen_ids:
+                # All requests failed
+                if is_from_cache:
+                    # Anomaly: all requests failed but we got data from cache
+                    return None, "Function not found in built-ins.", "anomaly"
+                else:
+                    return None, "Failed to retrieve documentation data from all sources.", None
             
             # Check if we got requested data
             if not all_seen_ids:

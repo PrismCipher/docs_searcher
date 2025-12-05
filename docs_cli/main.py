@@ -4,19 +4,39 @@ from rich.panel import Panel
 from rich.markdown import Markdown
 from docs_cli.providers import get_provider
 
-app = typer.Typer()
+app = typer.Typer(add_completion=False, help="Developer Documentation CLI")
 console = Console()
 
-@app.command()
-def search(
-    query: str, 
-    language: str = typer.Option("python", "--lang", "-l", help="Language doc to search"),
-    force: bool = typer.Option(False, "--force", "-f", help="Force refresh data (ignore cache)")
+@app.callback(invoke_without_command=True)
+def main(
+    ctx: typer.Context,
+    language: str = typer.Argument(None, help="Programming language (python, cpp, etc.)"),
+    query: str = typer.Argument(None, help="Search query (e.g. print, vector)"),
+    force: bool = typer.Option(False, "--force", "-f", help="Force refresh data (ignore cache)"),
+    anomaly: bool = typer.Option(False, "--anomaly", "-a", help="Force to trigger anomaly badge", hidden=True),
+    version: bool = typer.Option(False, "--version", "-v", help="Show version"),
 ):
     """
-    Search documentation for a specific query.
-    Usage Example: docs search print
+    Docs CLI: Search documentation for a specific query.
+    Usage: docs [LANGUAGE] [QUERY]
     """
+    # Handle version flag or no input
+    if version:
+        console.print("[bold yellow]Docs CLI Tool[/bold yellow] v0.2 (Alpha)")
+        return
+    
+    if ctx.invoked_subcommand is None:
+        if not language or not query:
+            console.print(Panel(
+                "Usage: [bold cyan]docs <language> <query>[/bold cyan]\n"
+                "Example: [bold green]docs python print[/bold green]\n"
+                "Example: [bold green]docs cpp vector[/bold green]\n\n"
+                "Try [bold]docs --help[/bold] for more info.",
+                title="Welcome to Docs CLI",
+                border_style="blue"
+            ))
+            return
+
     # Begin response
     console.print(f"[bold grey50]Searching for '{query}' in {language} docs...[/bold grey50]")
 
@@ -26,19 +46,21 @@ def search(
     if not provider:
         console.print(Panel(
             f"[red]Sorry, documentation for '{language}' is not supported yet.[/red]\n"
-            f"Supported languages: python",
+            f"Supported languages: python, cpp",
             title="Unsupported Language",
             border_style="red"
         ))
         return
 
     # Use the provider to search
-    url, result, is_cached = provider.search(query, force_refresh=force) # Function from scraper.py
+    url, result, is_cached = provider.search(query, force_refresh=force, force_anomaly=anomaly) # Function from scraper.py
 
     if url:
         # Found
         # Display with source badge
-        if is_cached is not None:
+        if is_cached == "anomaly":
+            source_badge = "[bold red]ALTERNATIVE DIMENSION[/bold red]"
+        elif is_cached is not None:
             source_badge = "[bold yellow]⚡ CACHED[/bold yellow]" if is_cached else "[bold blue]🌐 ONLINE[/bold blue]"
         else:
             source_badge = "[bold grey50]UNKNOWN[/bold grey50]"
