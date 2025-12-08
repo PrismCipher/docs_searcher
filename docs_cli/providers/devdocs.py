@@ -105,14 +105,17 @@ class DevDocsProvider(BaseProvider):
         content = soup.find(class_ = "_content") or soup
 
         garbage_selectors = [
-            "nav", "footer", "header", "script", "style", "svg", "button", "iframe",
+            "nav", "footer", "header", "script", "style", "svg", "button", "iframe", "form",
             ".sidebar", ".ads", ".print-only", ".visually-hidden", ".toc", ".breadcrumb",
+            
+            # Compatibility tables and sections
+            "#browser_compatibility", ".bc-table", ".compatibility", ".htab",
 
-            "#browser_compatibility", ".bc_table", ".compatibility",
+            # Specifications and formal definitions
+            "#specifications", ".spec-table", "#formal_definition",
 
-            "#specifications", ".spec-tables", "#formal_definition",
-
-            "#see_also", ".see-also",
+            # Other common clutter
+            "#see_also", ".see-also", ".item-footer"
         ]
 
         for selector in garbage_selectors:
