@@ -4,6 +4,7 @@ from datetime import timedelta
 from .python import PythonProvider
 from .cpp import CppProvider
 from .devdocs import DevDocsProvider
+from .sphinx import SphinxProvider
 
 # GLOBAL CACHE SETUP
 CACHE_DIR = Path.home() / ".docs_cli"
@@ -35,13 +36,29 @@ DEVDOCS_ALIASES = {
     "typescript": "typescript",
 }
 
+SPHINX_MAPPING = {
+    "pandas": "https://pandas.pydata.org/docs",
+    "numpy": "https://numpy.org/doc/stable",
+    "django": "https://docs.djangoproject.com/en/stable",
+    "flask": "https://flask.palletsprojects.com/en/stable",
+    "requests": "https://requests.readthedocs.io/en/latest",
+    "fastapi": "https://fastapi.tiangolo.com",
+    "sqlalchemy": "https://docs.sqlalchemy.org/en/20",
+}
+
 def get_provider(lang: str):
     """Returns the provider class for the selected language or None"""
     lang = lang.lower()
 
+    # Check for manual providers
     if lang in PROVIDERS:
         return PROVIDERS[lang]
     
+    # Check Sphinx mapping
+    if lang in SPHINX_MAPPING:
+        return SphinxProvider(lang, SPHINX_MAPPING[lang])
+    
+    # Fallback to DevDocs
     devdocs_lang = DEVDOCS_ALIASES.get(lang, lang)
 
     return DevDocsProvider(devdocs_lang)
