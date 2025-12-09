@@ -34,6 +34,8 @@ DEVDOCS_ALIASES = {
     "js": "javascript",
     "ts": "typescript",
     "typescript": "typescript",
+    "rb": "ruby",  
+    "py": "python",
 }
 
 SPHINX_MAPPING = {
