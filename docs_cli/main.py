@@ -3,7 +3,6 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.markdown import Markdown
 from docs_cli.providers import get_provider
-
 # Initialize console globally
 console = Console()
 
@@ -11,14 +10,13 @@ def main(
     language: str = typer.Argument(None, help="Programming language (python, cpp, etc.) or 'info'"),
     query: str = typer.Argument(None, help="Search query (e.g. print, vector)"),
     force: bool = typer.Option(False, "--force", "-f", help="Force refresh data (ignore cache)"),
+    pager: bool = typer.Option(False, "--pager", "-p", help="Use pager for long output (may break Unicode on Windows)"),
     anomaly: bool = typer.Option(False, "--anomaly", "-a", help="Force to trigger anomaly badge", hidden=True),
     version: bool = typer.Option(False, "--version", "-v", help="Show version"),
 ):
     """
     Docs CLI: Search documentation for a specific query.
     Usage: docs [OPTIONS] [LANGUAGE] [QUERY]
-    
-    Options can be placed anywhere: before, after, or between arguments.
     """
     # 1. Handle version flag
     if version:
@@ -32,7 +30,7 @@ def main(
         console.print("\nSupported Languages:")
         console.print("  • Python (python, py)")
         console.print("  • C++ (cpp, c++)")
-        console.print("  • And many more via DevDocs.io")
+        console.print("  • And many more via DevDocs.io (js, rust, css, html...)")
         return
     
     # 3. If no arguments provided - show welcome panel
@@ -44,8 +42,7 @@ def main(
             "Example: [bold green]docs --force css flex[/bold green]\n\n"
             "Commands:\n"
             "  • [bold]docs info[/bold] - Show tool information\n"
-            "  • [bold]docs --help[/bold] - Show detailed help\n"
-            "  • [bold]docs --version[/bold] - Show version",
+            "  • [bold]docs --help[/bold] - Show detailed help",
             title="Welcome to Docs CLI",
             border_style="blue"
         ))
@@ -59,8 +56,7 @@ def main(
 
     if not provider:
         console.print(Panel(
-            f"[red]Sorry, documentation for '{language}' is not supported yet.[/red]\n"
-            f"Supported languages: python, cpp, rust, js, css, html, and more.",
+            f"[red]Sorry, documentation for '{language}' is not supported yet.[/red]\n",
             title="Unsupported Language",
             border_style="red"
         ))
@@ -81,15 +77,24 @@ def main(
             source_badge = "[bold grey50]UNKNOWN[/bold grey50]"
             border_color = "green"
         
-        console.print(Panel.fit(
-            f"[bold green]Found![/bold green]\n\n[link={url}]{url}[/link]",
-            title=f"{language.capitalize()}: {query} ({source_badge})",
-            border_style=border_color
-        ))
+        # Helper function to print the result
+        def print_result():
+            console.print(Panel.fit(
+                f"[bold green]Found![/bold green]\n\n[link={url}]{url}[/link]",
+                title=f"{language.capitalize()}: {query} ({source_badge})",
+                border_style=border_color
+            ))
+            
+            # Markdown allows the text to look better
+            console.print(Markdown(result))
+            console.print("[grey50]" + "-"*50 + "[/grey50]")
         
-        # Markdown allows the text to look better
-        console.print(Markdown(result))
-        console.print("[grey50]" + "-"*50 + "[/grey50]")
+        # Use pager if requested (may break Unicode on Windows)
+        if pager:
+            with console.pager(styles=True):
+                print_result()
+        else:
+            print_result()
     else:
         # Not found - Handle errors and suggestions
         if isinstance(result, dict) and result.get("type") == "did_you_mean":
@@ -110,6 +115,7 @@ def main(
                 border_style="red"
             ))
 
+# FIX: Bridge typer.run() with setup.py entry point
 def run():
     typer.run(main)
 
