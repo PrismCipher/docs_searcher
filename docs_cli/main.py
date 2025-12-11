@@ -2,7 +2,6 @@ import typer
 from rich.console import Console
 from rich.panel import Panel
 from rich.markdown import Markdown
-from docs_cli.providers import get_provider
 # Initialize console globally
 console = Console()
 
@@ -50,6 +49,8 @@ def main(
 
     # 4. Main search logic
     console.print(f"[bold grey50]Searching for '{query}' in {language} docs...[/bold grey50]")
+
+    from docs_cli.providers import get_provider
 
     # Get the appropriate provider based on language
     provider = get_provider(language)

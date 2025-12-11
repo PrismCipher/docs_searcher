@@ -18,9 +18,31 @@ Docs CLI is a terminal-based documentation search tool designed to provide quick
 
 ## Installation
 
+### Option 1: Pre-built Binaries (Recommended for most users)
+
+#### Windows
+1. Download `DocsCLI-win.zip` from [Releases](https://github.com/PrismCipher/docs_searcher/releases)
+2. Extract the archive
+3. Run `install.bat` inside the folder
+4. Restart your terminal
+
+**Note:** If the installer fails, follow the manual installation instructions in `legacy_install.txt`
+
+#### Linux / macOS
+1. Download `DocsCLI-linux-mac.tar.gz` from [Releases](https://github.com/PrismCipher/docs_searcher/releases)
+2. Extract the archive
+3. Run `./install_unix.sh` inside the folder
+4. Restart your terminal
+
+**Note:** If you get "permission denied", run `chmod +x install_unix.sh` first
+
+### Option 2: Build from Source (For developers)
+
+#### Using Git (Recommended)
+
 1. Clone the repository:
    ```bash
-   git clone https://github.com/YOUR_USERNAME/docs_searcher
+   git clone https://github.com/PrismCipher/docs_searcher
    cd docs_searcher
    ```
 
@@ -29,10 +51,35 @@ Docs CLI is a terminal-based documentation search tool designed to provide quick
    pip install -r requirements.txt
    ```
 
-3. (Optional) Install globally to use `docs` command from anywhere:
+3. Install globally:
    ```bash
    pip install -e .
    ```
+
+#### Using Pre-packaged Source
+
+**Windows:**
+1. Download `DocsCLI-win-source.zip` from [Releases](https://github.com/PrismCipher/docs_searcher/releases)
+2. Extract the archive
+3. Run `install_from_source.bat`
+4. This will build the project into the `dist` folder and install it
+
+**Linux / macOS:**
+1. Download source from [Releases](https://github.com/PrismCipher/docs_searcher/releases)
+2. Extract and navigate to the folder
+3. Run:
+   ```bash
+   pip install -r requirements.txt
+   pip install -e .
+   ```
+
+### Verify Installation
+
+After installation, restart your terminal and test:
+```bash
+docs python print
+docs info
+```
 
 ## Usage
 

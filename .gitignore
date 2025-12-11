@@ -3,6 +3,10 @@ venv/
 __pycache__/
 *.egg-info/
 .vscode/
+build/
+dist/
+install/
+docs.spec
 docs_cache.sqlite
 "@ | Out-File -Encoding UTF8 .gitignore
 

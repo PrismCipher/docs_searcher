@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='docs-cli',
-    version='0.1',
+    version='0.2',
     packages=find_packages(),
     install_requires=[
         'typer',
@@ -13,7 +13,8 @@ setup(
     ],
     entry_points={
         'console_scripts': [
-            'docs=docs_cli.main:app',
+            'docs=docs_cli.main:run',
+            'docs-uninstall=docs_cli.uninstall:main',
         ],
     },
 )
