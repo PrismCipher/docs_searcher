@@ -44,17 +44,22 @@ class CppProvider(BaseProvider):
         failed_requests = 0
         any_data_found = False  # Track if we found any data
         is_from_cache = None
+        headers = {'User-Agent': 'DocsCLI/0.2'}
 
         for url in urls:
             try:
                 if force_refresh and session:
-                    session.delete(urls=[url])
+                    # Create a request object with the same parameters to get the correct cache key
+                    cache_key = session.create_key(
+                        request=requests.Request('GET', url, headers = headers).prepare()
+                    )
+                    session.delete(cache_key)
 
                 # DEBUG
                 # print(f"Trying URL: {url}")
 
-                # Add User_Agent
-                response = requests.get(url, headers={'User-Agent': 'DocsCLI/0.1'})
+                # Add User_Agent AND expire_after
+                response = requests.get(url, headers = headers)
                 total_requests += 1
 
                 # Determine if the response was served from cache
