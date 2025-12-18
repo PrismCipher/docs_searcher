@@ -25,17 +25,18 @@ class CppProvider(BaseProvider):
 
         # URLs list
         urls = [
+            f"https://en.cppreference.com/w/cpp/{clean_query}",
             f"https://en.cppreference.com/w/cpp/container/{clean_query}",
-            f"https://en.cppreference.com/w/cpp/string/basic_string/{clean_query}",
+            f"https://en.cppreference.com/w/cpp/string/{clean_query}",
             f"https://en.cppreference.com/w/cpp/algorithm/{clean_query}",
+            f"https://en.cppreference.com/w/cpp/keyword/{clean_query}",
             f"https://en.cppreference.com/w/cpp/language/{clean_query}",
+            f"https://en.cppreference.com/w/cpp/types/{clean_query}",
             f"https://en.cppreference.com/w/cpp/io/{clean_query}",
             f"https://en.cppreference.com/w/cpp/memory/{clean_query}",
             f"https://en.cppreference.com/w/cpp/utility/{clean_query}",
+            f"https://en.cppreference.com/w/cpp/header/{clean_query}",
         ]
-
-        if clean_query == "vector":
-            urls.insert(0, "https://en.cppreference.com/w/cpp/container/vector")
 
         session = requests_cache.get_cache()
 
@@ -59,8 +60,10 @@ class CppProvider(BaseProvider):
                 # print(f"Trying URL: {url}")
 
                 # Add User_Agent AND expire_after
-                response = requests.get(url, headers = headers)
+                response = requests.get(url, headers = headers, allow_redirects=True)
                 total_requests += 1
+
+                response.encoding = 'utf-8'
 
                 # Determine if the response was served from cache
                 is_from_cache = getattr(response, 'from_cache', False)
@@ -69,7 +72,12 @@ class CppProvider(BaseProvider):
                     failed_requests += 1
                     continue
 
-                url_result, text_result, _ = self._parse_page(response.text, url, clean_query, is_from_cache)
+                if "mw-content-text" not in response.text:
+                    failed_requests += 1
+                    continue
+                
+                final_url = response.url
+                url_result, text_result, _ = self._parse_page(response.text, final_url, clean_query, is_from_cache)
 
                 if url_result:
                     any_data_found = True
