@@ -135,6 +135,15 @@ docs go fmt
   docs pandas DataFrame --pager
   ```
 
+- `--devdocs` / `-d`: Force use DevDocs.io provider for any language
+  ```bash
+  docs python print --devdocs
+  ```
+
+- `--utf8` / `-8`: Force UTF-8 encoding for responses
+
+- `--auto-detect` / `-a`: Auto-detect encoding from response
+
 - `--version` / `-v`: Show version information
 
 - `--help`: Display help message and available options
@@ -149,7 +158,8 @@ docs go fmt
 ```
 docs_searcher/
 ├── docs_cli/
-│   ├── main.py              # CLI interface and command 
+│   ├── main.py              # CLI interface and command handling
+│   ├── utils.py             # Shared utilities (caching, parsing)
 │   └── providers/
 │       ├── __init__.py      # Provider registry and 
 │       ├── base.py          # Abstract base class 
@@ -227,7 +237,7 @@ Providers return a three-tuple: `(url, result, cache_status)`. Failed lookups re
 
 ## Requirements
 
-- Python 3.7+
+- Python 3.10+
 - Libraries: typer, rich, requests, requests-cache, beautifulsoup4, lxml, markdownify
 
 ## License
