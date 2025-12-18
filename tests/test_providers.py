@@ -45,10 +45,11 @@ def test_cpp_search_force_refresh():
     """
     Test that C++ provider correctly fetches fresh data when force_refresh=True.
     Verifies that data comes from online source, not cache.
+    Uses 'map' instead of 'vector' to avoid cache conflicts with other tests.
     """
     provider = get_provider("cpp")
     assert provider is not None, "C++ Provider is None"
-    url, result, is_cached = provider.search("vector", force_refresh=True)
+    url, result, is_cached = provider.search("map", force_refresh=True)
     assert url is not None
     assert is_cached is False  # Must be online, not cached
 

@@ -1,138 +1,109 @@
-import requests
-import requests_cache
-from bs4 import BeautifulSoup
-from markdownify import markdownify as md
+"""
+C++ Documentation Provider
+Searches cppreference.com for standard library functions.
+"""
 from .base import BaseProvider
+from ..utils import (
+    handle_cache,
+    fetch_url,
+    parse_html,
+    html_to_markdown,
+)
+
 
 class CppProvider(BaseProvider):
-    """
-    C++ Documentation Provider
-    """
-    def search(self, query: str, force_refresh: bool = False, force_anomaly: bool = False):
+    """Provider for C++ documentation (cppreference.com)"""
+
+    # URL patterns to search for C++ documentation
+    URL_PATTERNS = [
+        "https://en.cppreference.com/w/cpp/{}",
+        "https://en.cppreference.com/w/cpp/container/{}",
+        "https://en.cppreference.com/w/cpp/string/{}",
+        "https://en.cppreference.com/w/cpp/algorithm/{}",
+        "https://en.cppreference.com/w/cpp/keyword/{}",
+        "https://en.cppreference.com/w/cpp/language/{}",
+        "https://en.cppreference.com/w/cpp/types/{}",
+        "https://en.cppreference.com/w/cpp/io/{}",
+        "https://en.cppreference.com/w/cpp/memory/{}",
+        "https://en.cppreference.com/w/cpp/utility/{}",
+        "https://en.cppreference.com/w/cpp/header/{}",
+    ]
+
+    def _parse_page(self, html: str, url: str) -> tuple:
         """
-        Parses C++ official documentation to search for standard library functions.
+        Parse the HTML content of a C++ documentation page.
+
+        Args:
+            html: Raw HTML content
+            url: The URL of the page
 
         Returns:
-            tuple: (url, result, cache_status)
-            cache_status can be:
-                - True: served from cache (normal)
-                - False: fetched online (normal)
-                - "anomaly": all requests failed, but data somehow was acquired
-                - None: unknown state
+            tuple: (url, markdown_text) or (None, error_message)
         """
-        # Query cleaner
+        soup = parse_html(html)
+
+        # Main content of CppReference is in <div id="mw-content-text">
+        content = soup.find('div', {"id": "mw-content-text"})
+
+        if not content:
+            return None, "Parse Error"
+
+        # Get first 3 non-empty paragraphs
+        paras = content.find_all("p")
+        valid_paras = [p for p in paras if p.get_text(strip=True)][:3]
+
+        if not valid_paras:
+            return None, "Found page but could not parse content."
+
+        full_html = "".join(str(p) for p in valid_paras)
+        text = html_to_markdown(full_html)
+
+        return url, text
+
+    def search(self, query: str, force_refresh: bool = False) -> tuple:
+        """
+        Search C++ documentation for standard library functions.
+
+        Args:
+            query: Function/class name to search (e.g., "vector", "std::map")
+            force_refresh: If True, bypass cache and fetch fresh data
+
+        Returns:
+            tuple: (url, result, is_from_cache)
+            - url: Documentation URL or None if not found
+            - result: Markdown text or error message
+            - is_from_cache: True if from cache, False if online, None if unknown
+        """
+        # Clean the query (remove std:: prefix)
         clean_query = query.replace("std::", "").strip().lower()
-
-        # URLs list
-        urls = [
-            f"https://en.cppreference.com/w/cpp/{clean_query}",
-            f"https://en.cppreference.com/w/cpp/container/{clean_query}",
-            f"https://en.cppreference.com/w/cpp/string/{clean_query}",
-            f"https://en.cppreference.com/w/cpp/algorithm/{clean_query}",
-            f"https://en.cppreference.com/w/cpp/keyword/{clean_query}",
-            f"https://en.cppreference.com/w/cpp/language/{clean_query}",
-            f"https://en.cppreference.com/w/cpp/types/{clean_query}",
-            f"https://en.cppreference.com/w/cpp/io/{clean_query}",
-            f"https://en.cppreference.com/w/cpp/memory/{clean_query}",
-            f"https://en.cppreference.com/w/cpp/utility/{clean_query}",
-            f"https://en.cppreference.com/w/cpp/header/{clean_query}",
-        ]
-
-        session = requests_cache.get_cache()
-
-        # Reqeusts tracking
-        total_requests = 0
-        failed_requests = 0
-        any_data_found = False  # Track if we found any data
         is_from_cache = None
-        headers = {'User-Agent': 'DocsCLI/0.2'}
+
+        # Generate URLs to try
+        urls = [pattern.format(clean_query) for pattern in self.URL_PATTERNS]
 
         for url in urls:
             try:
-                if force_refresh and session:
-                    # Create a request object with the same parameters to get the correct cache key
-                    cache_key = session.create_key(
-                        request=requests.Request('GET', url, headers = headers).prepare()
-                    )
-                    session.delete(cache_key)
+                # Handle cache invalidation
+                handle_cache(url, force_refresh)
 
-                # DEBUG
-                # print(f"Trying URL: {url}")
-
-                # Add User_Agent AND expire_after
-                response = requests.get(url, headers = headers, allow_redirects=True)
-                total_requests += 1
-
-                response.encoding = 'utf-8'
-
-                # Determine if the response was served from cache
-                is_from_cache = getattr(response, 'from_cache', False)
+                # Fetch the page
+                response, is_from_cache = fetch_url(url)
 
                 if response.status_code != 200:
-                    failed_requests += 1
                     continue
 
+                # Check if page has content
                 if "mw-content-text" not in response.text:
-                    failed_requests += 1
                     continue
-                
-                final_url = response.url
-                url_result, text_result, _ = self._parse_page(response.text, final_url, clean_query, is_from_cache)
+
+                # Parse the page
+                final_url = response.url  # Handle redirects
+                url_result, text_result = self._parse_page(response.text, final_url)
 
                 if url_result:
-                    any_data_found = True
-                    if force_anomaly:
-                        return url_result, text_result, "anomaly"
                     return url_result, text_result, is_from_cache
-                
-                # If page exists (200) but parsing failed - try next URL
-                continue
 
             except Exception:
-                failed_requests += 1
                 continue
 
-        if total_requests > 0 and failed_requests == total_requests and any_data_found:
-            # Anomaly: all requests failed but we got data somehow
-            if is_from_cache:
-                return None, "Not found in C++ standard library documentation.", "anomaly"
-            else:
-                return None, "Failed to retrieve documentation data from all sources.", None
-
         return None, "Not found in C++ standard library documentation.", None
-    
-    def _parse_page(self, html, url, query, is_from_cache):
-        """
-        Parses the HTML content of a C++ documentation page.
-
-        Returns:
-            tuple: (url, result, cache_status)
-        """
-        soup = BeautifulSoup(html, 'lxml')
-
-        # Main content of CppReference is layed out in <div id="mw-content-text">
-        content = soup.find('div', {"id": "mw-content-text"})
-
-        if content:
-            text_parts = []
-
-            # Search all paragraphs
-            paras = content.find_all("p")
-
-            # Filter out completely empty paragraphs
-            valid_paras = [p for p in paras if p.get_text(strip=True)]
-
-            for p in valid_paras[:3]: # limit to first 3 paragraphs
-                text_parts.append(str(p))
-
-            if not text_parts:
-                return None, "Found page but could not parse content.", is_from_cache
-            
-            full_html = "".join(text_parts)
-
-            # Convert to Markdown
-            text = md(full_html)
-
-            return url, text.strip(), is_from_cache
-        
-        return None, "Parse Error", is_from_cache

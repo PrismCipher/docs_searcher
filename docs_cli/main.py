@@ -1,16 +1,26 @@
+"""
+Docs CLI - Search programming documentation from the command line.
+"""
 import typer
 from rich.console import Console
 from rich.panel import Panel
 from rich.markdown import Markdown
+
+from . import utils
+from .utils import VERSION
+
 # Initialize console globally
 console = Console()
+
 
 def main(
     language: str = typer.Argument(None, help="Programming language (python, cpp, etc.) or 'info'"),
     query: str = typer.Argument(None, help="Search query (e.g. print, vector)"),
     force: bool = typer.Option(False, "--force", "-f", help="Force refresh data (ignore cache)"),
     pager: bool = typer.Option(False, "--pager", "-p", help="Use pager for long output (may break Unicode on Windows)"),
-    anomaly: bool = typer.Option(False, "--anomaly", "-a", help="Force to trigger anomaly badge", hidden=True),
+    devdocs: bool = typer.Option(False, "--devdocs", "-d", help="Force use DevDocs.io provider"),
+    utf8: bool = typer.Option(False, "--utf8", "-8", help="Force UTF-8 encoding"),
+    auto_detect: bool = typer.Option(False, "--auto-detect", "-a", help="Auto-detect encoding from response"),
     version: bool = typer.Option(False, "--version", "-v", help="Show version"),
 ):
     """
@@ -19,19 +29,19 @@ def main(
     """
     # 1. Handle version flag
     if version:
-        console.print("[bold yellow]Docs CLI Tool[/bold yellow] v0.2 (Alpha)")
+        console.print(f"[bold yellow]Docs CLI Tool[/bold yellow] v{VERSION}")
         return
 
     # 2. Handle 'info' command (now as a special argument)
     if language and language.lower() == "info":
-        console.print("[bold yellow]Docs CLI Tool[/bold yellow] v0.2 (Alpha)")
+        console.print(f"[bold yellow]Docs CLI Tool[/bold yellow] v{VERSION}")
         console.print("Created for CS50 Final Project")
         console.print("\nSupported Languages:")
         console.print("  • Python (python, py)")
         console.print("  • C++ (cpp, c++)")
         console.print("  • And many more via DevDocs.io (js, rust, css, html...)")
         return
-    
+
     # 3. If no arguments provided - show welcome panel
     if not language or not query:
         console.print(Panel(
@@ -47,13 +57,25 @@ def main(
         ))
         return
 
-    # 4. Main search logic
+    # 4. Apply encoding flags
+    if utf8:
+        utils.DEFAULT_ENCODING = "utf-8"
+        utils.AUTO_DETECT_ENCODING = False
+    elif auto_detect:
+        utils.AUTO_DETECT_ENCODING = True
+
+    # 5. Main search logic
     console.print(f"[bold grey50]Searching for '{query}' in {language} docs...[/bold grey50]")
 
     from docs_cli.providers import get_provider
+    from docs_cli.providers.devdocs import DevDocsProvider
 
     # Get the appropriate provider based on language
-    provider = get_provider(language)
+    if devdocs:
+        # Force DevDocs.io provider
+        provider = DevDocsProvider(language)
+    else:
+        provider = get_provider(language)
 
     if not provider:
         console.print(Panel(
@@ -64,32 +86,29 @@ def main(
         return
 
     # Perform the search
-    url, result, is_cached = provider.search(query, force_refresh=force, force_anomaly=anomaly)
+    url, result, is_cached = provider.search(query, force_refresh=force)
 
     if url:
         # Found - Display with source badge
-        if is_cached == "anomaly":
-            source_badge = "[bold red]ALTERNATIVE DIMENSION[/bold red]"
-            border_color = "red"
-        elif is_cached is not None:
-            source_badge = "[bold yellow]⚡ CACHED[/bold yellow]" if is_cached else "[bold blue]🌐 ONLINE[/bold blue]"
-            border_color = "green"
+        if is_cached is True:
+            source_badge = "[bold yellow]⚡ CACHED[/bold yellow]"
+        elif is_cached is False:
+            source_badge = "[bold blue]🌐 ONLINE[/bold blue]"
         else:
             source_badge = "[bold grey50]UNKNOWN[/bold grey50]"
-            border_color = "green"
-        
+
         # Helper function to print the result
         def print_result():
             console.print(Panel.fit(
                 f"[bold green]Found![/bold green]\n\n[link={url}]{url}[/link]",
                 title=f"{language.capitalize()}: {query} ({source_badge})",
-                border_style=border_color
+                border_style="green"
             ))
-            
+
             # Markdown allows the text to look better
             console.print(Markdown(result))
-            console.print("[grey50]" + "-"*50 + "[/grey50]")
-        
+            console.print("[grey50]" + "-" * 50 + "[/grey50]")
+
         # Use pager if requested (may break Unicode on Windows)
         if pager:
             with console.pager(styles=True):

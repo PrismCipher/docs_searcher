@@ -1,141 +1,106 @@
-import requests
-import re
+"""
+Python Documentation Provider
+Searches Python's official documentation for built-in functions and types.
+"""
 import difflib
-import requests_cache
-from bs4 import BeautifulSoup
-from markdownify import markdownify as md
 from .base import BaseProvider
+from ..utils import (
+    handle_cache,
+    fetch_url,
+    parse_html,
+    html_to_markdown,
+)
+
 
 class PythonProvider(BaseProvider):
+    """Provider for Python official documentation (docs.python.org)"""
 
-    def _parse_description(self, element, url, query):
+    SEARCH_URLS = [
+        "https://docs.python.org/3/library/functions.html",
+        "https://docs.python.org/3/library/stdtypes.html"
+    ]
+
+    def _parse_description(self, element, url: str, query: str) -> tuple:
         """
-        Utility function to parse the description of a documentation element.
+        Parse the description of a documentation element.
+        
+        Args:
+            element: BeautifulSoup element containing the function definition
+            url: Base URL of the documentation page
+            query: The function name being searched
+        
+        Returns:
+            tuple: (full_url, markdown_text) or None if not found
         """
         description_tag = element.find_next_sibling("dd")
         if description_tag:
-            # Take HTML
             html_content = str(description_tag)
-            
-            # Convert HTML to Markdown
-            text = md(html_content, heading_style="ATX")
-
-            # Divide into lines and strip extra spaces
-            lines = [line.strip() for line in text.splitlines()]
-            text = "\n".join(lines)
-            
-            # Fix spaces before punctuation
-            text = re.sub(r'\s+([.,;!?])', r'\1', text)
-            
-            # Remove excessive newlines
-            text = re.sub(r'\n{3,}', '\n\n', text)
-            
-            # Remove leading spaces/newlines
+            text = html_to_markdown(html_content)
             text = text.lstrip(" :\n")
-            
-            return url + f"#{query}", text.strip()
+            return f"{url}#{query}", text
         return None
 
-    def search(self, query: str, force_refresh: bool = False, force_anomaly: bool = False):
+    def search(self, query: str, force_refresh: bool = False) -> tuple:
         """
-        Parses Python's official documentation to search for built-in functions.
+        Search Python's official documentation for built-in functions.
+
+        Args:
+            query: Function name to search (e.g., "print", "len")
+            force_refresh: If True, bypass cache and fetch fresh data
 
         Returns:
-            tuple: (url, result, cache_status)
-            cache_status can be:
-                - True: served from cache (normal)
-                - False: fetched online (normal)
-                - "anomaly": all requests failed, but data somehow was acquired
-                - None: unknown state
+            tuple: (url, result, is_from_cache)
+            - url: Documentation URL or None if not found
+            - result: Markdown text, error message, or suggestions dict
+            - is_from_cache: True if from cache, False if online, None if unknown
         """
-        # Target URL (the page where all built-in functions live)
-        search_urls = [
-            "https://docs.python.org/3/library/functions.html",
-            "https://docs.python.org/3/library/stdtypes.html"
-            ]
-
-        # Clean the query
         clean_query = query.strip("()").lower()
-        all_seen_ids = [] # To collect all ids for suggestions
-        is_from_cache = None  # Track cache status across all requests
-
-        # Track request
-        total_requests = 0
-        failed_requests = 0
-        cache_status_for_result = None
-
-        # Get the current cache session
-        session = requests_cache.get_cache()
+        all_seen_ids = []
+        is_from_cache = None
 
         try:
-            for url in search_urls:
+            for url in self.SEARCH_URLS:
                 try:
-                    # If force refresh, delete this URL from cache first
-                    if force_refresh and session:
-                        session.delete(urls=[url])
+                    # Handle cache invalidation
+                    handle_cache(url, force_refresh)
 
-                    # Make a request to the site
-                    response = requests.get(url)
-                    total_requests += 1
+                    # Fetch the page
+                    response, is_from_cache = fetch_url(url)
 
-                    # Determine if the response was served from cache
-                    is_from_cache = getattr(response, 'from_cache', False)
+                    if response.status_code != 200:
+                        continue
 
-                    if response.status_code != 200: # Status code 200 means "OK"
-                        failed_requests += 1
-                        continue  # Skip this URL if we got a non-200 response
+                    # Parse HTML
+                    soup = parse_html(response.text)
 
-                    # Determine cache status (only from successful responses)
-                    if cache_status_for_result is None:
-                        cache_status_for_result = is_from_cache
-
-                    # Parse the HTML
-                    soup = BeautifulSoup(response.text, 'lxml')
-
-                    # Search for the specific element
-                    # In Python documentation, each function has an id equal to its name.
-                    # For example: <dt id="print">
+                    # Search for element by ID (Python docs use function name as ID)
                     element = soup.find(id=clean_query)
 
                     if element:
-                        # If we found the function header return result immediately
-                        url_result, text_result = self._parse_description(element, url, clean_query) or (None, None)
-
-                        if url_result:
-                            if force_anomaly:
-                                return url_result, text_result, "anomaly"
+                        result = self._parse_description(element, url, clean_query)
+                        if result:
+                            url_result, text_result = result
                             return url_result, text_result, is_from_cache
-                        return None, "Function not found in built-ins.", None
-                    
+                        return None, "Function found but could not parse description.", None
+
+                    # Collect all IDs for suggestions
                     page_ids = [dt.get('id') for dt in soup.find_all('dt') if dt.get('id')]
                     all_seen_ids.extend(page_ids)
 
-                except requests.RequestException:
-                    # If this specific URL fails, continue to the next one
-                    failed_requests += 1
+                except Exception:
                     continue
-            
-            if total_requests > 0 and failed_requests == total_requests and all_seen_ids:
-                # All requests failed
-                if is_from_cache:
-                    # Anomaly: all requests failed but we got data from cache
-                    return None, "Function not found in built-ins.", "anomaly"
-                else:
-                    return None, "Failed to retrieve documentation data from all sources.", None
-            
-            # Check if we got requested data
-            if not all_seen_ids:
-                return None, "Failed to retrieve documentation data. No cached or online data available.", None
 
-            # We did not find the function in any page
-            # Search for close matches to suggest with all collected IDs
-            # Find 3 closest matches (cutoff=0.6 means 60% similarity)
+            # No data retrieved at all
+            if not all_seen_ids:
+                return None, "Failed to retrieve documentation. No cached or online data available.", None
+
+            # Function not found - try to suggest alternatives
             matches = difflib.get_close_matches(clean_query, all_seen_ids, n=3, cutoff=0.6)
-            
+
             if matches:
                 return None, {"type": "did_you_mean", "matches": matches}, None
-            
-            return None, "Function not found.", None
+
+            return None, "Function not found in Python built-ins.", None
 
         except Exception as e:
-            return None, str(e), None
+            return None, f"Unexpected error: {str(e)}", None
