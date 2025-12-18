@@ -7,6 +7,7 @@ from ..utils import (
     handle_cache,
     fetch_url,
     parse_html,
+    remove_html_garbage,
     html_to_markdown,
 )
 
@@ -29,6 +30,15 @@ class CppProvider(BaseProvider):
         "https://en.cppreference.com/w/cpp/header/{}",
     ]
 
+    # CppReference-specific garbage selectors
+    GARBAGE_SELECTORS = [
+        ".t-navbar",          # Navigation bar
+        ".mw-editsection",    # Edit section links
+        "#toc",               # Table of contents
+        ".t-dcl-rev-aux",     # Revision aux
+        ".noprint",           # Print-hidden elements
+    ]
+
     def _parse_page(self, html: str, url: str) -> tuple:
         """
         Parse the HTML content of a C++ documentation page.
@@ -48,15 +58,14 @@ class CppProvider(BaseProvider):
         if not content:
             return None, "Parse Error"
 
-        # Get first 3 non-empty paragraphs
-        paras = content.find_all("p")
-        valid_paras = [p for p in paras if p.get_text(strip=True)][:3]
+        # Remove CppReference-specific garbage
+        remove_html_garbage(content, extra_selectors=self.GARBAGE_SELECTORS)
 
-        if not valid_paras:
+        # Convert full content to markdown (preserve tables and links)
+        text = html_to_markdown(str(content))
+
+        if not text.strip():
             return None, "Found page but could not parse content."
-
-        full_html = "".join(str(p) for p in valid_paras)
-        text = html_to_markdown(full_html)
 
         return url, text
 
