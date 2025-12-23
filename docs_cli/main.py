@@ -120,7 +120,7 @@ def main(
         if isinstance(result, dict) and result.get("type") == "did_you_mean":
             # Show suggestions with proper command format
             suggestions = result["matches"]
-            suggestion_text = "\n".join([f"  • [bold cyan]docs {language} {match}[/bold cyan]" for match in suggestions])
+            suggestion_text = "\n".join([f"  • [bold cyan]{match}[/bold cyan]" for match in suggestions])
             
             console.print(Panel(
                 f"[yellow]Could not find '{query}'. Did you mean?[/yellow]\n\n{suggestion_text}",

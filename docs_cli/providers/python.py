@@ -9,6 +9,7 @@ from ..utils import (
     fetch_url,
     parse_html,
     html_to_markdown,
+    get_suggestions,
 )
 
 
@@ -95,10 +96,9 @@ class PythonProvider(BaseProvider):
                 return None, "Failed to retrieve documentation. No cached or online data available.", None
 
             # Function not found - try to suggest alternatives
-            matches = difflib.get_close_matches(clean_query, all_seen_ids, n=3, cutoff=0.6)
-
-            if matches:
-                return None, {"type": "did_you_mean", "matches": matches}, None
+            suggestions = get_suggestions(clean_query, all_seen_ids)
+            if suggestions:
+                return None, suggestions, None
 
             return None, "Function not found in Python built-ins.", None
 

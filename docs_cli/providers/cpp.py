@@ -9,6 +9,7 @@ from ..utils import (
     parse_html,
     remove_html_garbage,
     html_to_markdown,
+    get_suggestions,
 )
 
 
@@ -28,6 +29,20 @@ class CppProvider(BaseProvider):
         "https://en.cppreference.com/w/cpp/memory/{}",
         "https://en.cppreference.com/w/cpp/utility/{}",
         "https://en.cppreference.com/w/cpp/header/{}",
+    ]
+
+    # Common C++ standard library items for suggestions
+    COMMON_ITEMS = [
+        "vector", "map", "set", "list", "deque", "array", "string",
+        "unordered_map", "unordered_set", "queue", "stack", "priority_queue",
+        "pair", "tuple", "optional", "variant", "any",
+        "sort", "find", "copy", "transform", "accumulate", "count",
+        "unique_ptr", "shared_ptr", "weak_ptr", "make_unique", "make_shared",
+        "cout", "cin", "endl", "cerr", "ifstream", "ofstream",
+        "thread", "mutex", "lock_guard", "async", "future",
+        "int", "long", "double", "float", "char", "bool", "void",
+        "class", "struct", "enum", "union", "namespace", "template",
+        "if", "else", "for", "while", "do", "switch", "case", "break", "continue", "return",
     ]
 
     # CppReference-specific garbage selectors
@@ -119,5 +134,10 @@ class CppProvider(BaseProvider):
 
             except Exception:
                 continue
+
+        # Not found - try to suggest alternatives
+        suggestions = get_suggestions(clean_query, self.COMMON_ITEMS)
+        if suggestions:
+            return None, suggestions, None
 
         return None, "Not found in C++ standard library documentation.", None

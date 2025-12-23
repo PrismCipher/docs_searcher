@@ -5,6 +5,7 @@ Provides unified handling for caching, encoding, HTML parsing, and markdown conv
 import re
 import requests
 import requests_cache
+import difflib
 from bs4 import BeautifulSoup
 from markdownify import markdownify as md
 
@@ -261,3 +262,40 @@ def normalize_text(text: str) -> str:
         Normalized text with single spaces
     """
     return " ".join(text.split())
+
+# =============================================================================
+# Suggestion Utilities
+# =============================================================================
+
+def get_suggestions(query: str, available_names: list, n: int = 3, cutoff: float = 0.6) -> dict | None:
+    """
+    Find similar names to suggest when exact match is not found.
+    
+    Args:
+        query: The search term that wasn't found
+        available_names: List of valid names to search through
+        n: Maximum number of suggestions to return
+        cutoff: Minimum similarity ratio (0.0 to 1.0)
+    
+    Returns:
+        dict with "type": "did_you_mean" and "matches" list, or None if no matches
+    """
+    if not available_names:
+        return None
+    
+    matches = difflib.get_close_matches(query.lower(), [name.lower() for name in available_names], n=n, cutoff=cutoff)
+    
+    if matches:
+        # Find original case versions
+        original_matches = []
+        for match in matches:
+            for name in available_names:
+                if name.lower() == match:
+                    original_matches.append(name)
+                    break
+            else:
+                original_matches.append(match)
+        
+        return {"type": "did_you_mean", "matches": original_matches}
+    
+    return None

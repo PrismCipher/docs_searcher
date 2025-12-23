@@ -13,6 +13,7 @@ from ..utils import (
     parse_html,
     remove_html_garbage,
     html_to_markdown,
+    get_suggestions,
 )
 
 
@@ -147,6 +148,9 @@ class SphinxProvider(BaseProvider):
         except Exception as e:
             return None, f"Failed to load inventory for {self.name}: {e}", None
 
+        # Get all available names for suggestions
+        available_names = list(inventory.keys())
+
         # Search for the query: exact → endswith → contains
         matches = [name for name in inventory.keys() if name == query]
 
@@ -157,6 +161,10 @@ class SphinxProvider(BaseProvider):
             matches = [name for name in inventory.keys() if query in name]
 
         if not matches:
+            # Try to suggest alternatives
+            suggestions = get_suggestions(query, available_names)
+            if suggestions:
+                return None, suggestions, None
             return None, f"Not found '{query}' in {self.name} inventory.", None
 
         # Get shortest match (most specific)

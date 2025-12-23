@@ -11,6 +11,7 @@ from ..utils import (
     parse_html,
     remove_html_garbage,
     html_to_markdown,
+    get_suggestions,
 )
 
 
@@ -160,6 +161,9 @@ class DevDocsProvider(BaseProvider):
             except json.JSONDecodeError:
                 return None, "Failed to parse DevDocs index JSON.", None
 
+            # Get all available names for suggestions
+            available_names = [item["name"] for item in entries]
+
             # Search logic: exact match → starts with → contains
             query_lower = query.lower()
 
@@ -177,8 +181,11 @@ class DevDocsProvider(BaseProvider):
                     (item for item in entries if query_lower in item["name"].lower()),
                     None
                 )
-
             if not found_entry:
+                # Try to suggest alternatives
+                suggestions = get_suggestions(query, available_names)
+                if suggestions:
+                    return None, suggestions, None
                 return None, f"Not found '{query}' in {self.slug} documentation.", None
 
             # Build URLs
