@@ -90,13 +90,18 @@ class CppProvider(BaseProvider):
         # Generate URLs to try
         urls = [pattern.format(clean_query) for pattern in self.URL_PATTERNS]
 
+        if force_refresh:
+            for url in urls:
+                handle_cache(url, force_refresh=True)
+
         for url in urls:
             try:
-                # Handle cache invalidation
-                handle_cache(url, force_refresh)
-
                 # Fetch the page
                 response, is_from_cache = fetch_url(url)
+
+                # When force_refresh was used, override the cache status
+                if force_refresh:
+                    is_from_cache = False
 
                 if response.status_code != 200:
                     continue
