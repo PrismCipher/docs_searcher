@@ -28,9 +28,9 @@ if %errorlevel% neq 0 (
 )
 
 echo [INFO] Building executable...
-pyinstaller --noconfirm --onefile --console --name docs --clean --add-data "docs_cli;docs_cli" build_entry.py
+pyinstaller --noconfirm --onedir --console --name docs --clean --add-data "docs_cli;docs_cli" build_entry.py
 
-if not exist "dist\docs.exe" (
+if not exist "dist\docs\docs.exe" (
     echo [ERROR] Build failed. Check errors above.
     pause
     exit /b
@@ -40,13 +40,28 @@ set "INSTALL_DIR=%LOCALAPPDATA%\DocsCLI"
 if not exist "%INSTALL_DIR%" mkdir "%INSTALL_DIR%"
 
 echo [INFO] Installing to %INSTALL_DIR%...
-copy /Y "dist\docs.exe" "%INSTALL_DIR%\docs.exe" >nul
+
+REM Remove old installation if exists
+if exist "%INSTALL_DIR%\docs" (
+    echo [INFO] Removing old installation...
+    rmdir /S /Q "%INSTALL_DIR%\docs"
+)
+
+REM Copy the entire docs folder
+xcopy /E /I /Y "dist\docs" "%INSTALL_DIR%\docs" >nul
 
 if %errorlevel% neq 0 (
     echo [ERROR] Failed to copy files.
     pause
     exit /b
 )
+
+REM Create launcher batch file
+echo [INFO] Creating launcher script...
+(
+    echo @echo off
+    echo "%INSTALL_DIR%\docs\docs.exe" %%*
+) > "%INSTALL_DIR%\docs.bat"
 
 echo [INFO] Updating PATH variable...
 set "PS_INSTALL_DIR=%INSTALL_DIR%"
@@ -58,6 +73,7 @@ echo [SUCCESS] Docs CLI has been built and installed!
 echo.
 echo Please RESTART your terminal to use 'docs' command.
 echo.
-echo Location: %INSTALL_DIR%\docs.exe
+echo Installation folder: %INSTALL_DIR%\docs\
+echo Launcher script: %INSTALL_DIR%\docs.bat
 echo ========================================================
 pause
