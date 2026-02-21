@@ -2,8 +2,6 @@
 
 A command-line tool for searching programming documentation directly from your terminal. Supports Python, C++, JavaScript, Rust, and 50+ other languages through multiple documentation sources.
 
-#### Video Demo: [URL]
-
 ## Description
 
 Docs CLI is a terminal-based documentation search tool designed to provide quick access to programming language and library documentation without leaving your development environment. The tool implements smart caching to minimize network requests and includes fallback mechanisms to ensure reliable documentation access.
@@ -186,16 +184,16 @@ docs_searcher/
 - Searches multiple namespaces (container, algorithm, string, etc.)
 - Handles both direct lookups and fallback searches
 
+**SphinxProvider** (`sphinx.py`)
+- Parses Sphinx-generated documentation (Pandas, NumPy, Django, etc.)
+- Decodes binary `objects.inv` inventory files
+- Matches function names using exact, prefix, and substring matching
+
 **DevDocsProvider** (`devdocs.py`)
 - Universal provider for 50+ languages via DevDocs.io API
 - Automatic version discovery (e.g., resolves "ruby" to "ruby~3.4")
 - Dual-strategy loading: lightweight HTML files or full database fallback
 - Cleans up HTML content by removing compatibility tables and navigation
-
-**SphinxProvider** (`sphinx.py`)
-- Parses Sphinx-generated documentation (Pandas, NumPy, Django, etc.)
-- Decodes binary `objects.inv` inventory files
-- Matches function names using exact, prefix, and substring matching
 
 ## Testing
 
